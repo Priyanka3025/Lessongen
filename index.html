@@ -1,366 +1,1296 @@
-// LessonGen API - Generates CBSE 5E model lesson plans using Google Gemini
-
-module.exports = async (req, res) => {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const {
-      board,
-      classLevel,
-      subject,
-      chapter,
-      topic,
-      language,
-      learningObjective,
-      teacherNotes
-    } = req.body;
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({
-        error: 'GEMINI_API_KEY not configured on server. Please add it in Vercel environment variables.'
-      });
-    }
-
-    const prompt = buildPrompt({
-      board,
-      classLevel,
-      subject,
-      chapter,
-      topic,
-      language,
-      learningObjective,
-      teacherNotes
-    });
-
-    // Try multiple models in order
-    const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-
-    const requestBody = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: prompt }]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-        responseMimeType: 'application/json'
-      }
-    };
-
-    let response = null;
-    let lastErrorText = '';
-    let lastStatus = 0;
-
-    for (const model of MODELS) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
-
-          if (response.ok) {
-            console.log(`Success with ${model} on attempt ${attempt}`);
-            break;
-          }
-
-          lastStatus = response.status;
-          lastErrorText = await response.text();
-          console.warn(`${model} attempt ${attempt} failed: ${response.status}`);
-
-          if (response.status === 400 || response.status === 401 || response.status === 403) {
-            break;
-          }
-
-          if (attempt < 2) {
-            await new Promise(r => setTimeout(r, 1000));
-          }
-        } catch (fetchErr) {
-          lastErrorText = fetchErr.message;
-          console.warn(`Fetch error for ${model}:`, fetchErr.message);
-        }
-      }
-
-      if (response && response.ok) break;
-    }
-
-    if (!response || !response.ok) {
-      console.error('All models failed. Last error:', lastErrorText);
-
-      let errorMessage = `Gemini API error: ${lastStatus || 'Unknown'}`;
-      try {
-        const errorData = JSON.parse(lastErrorText);
-        if (errorData.error && errorData.error.message) {
-          errorMessage = errorData.error.message;
-        }
-      } catch (e) {}
-
-      if (lastStatus === 429) {
-        errorMessage = 'Rate limit reached. Please wait a minute and try again.';
-      } else if (lastStatus === 503 || errorMessage.toLowerCase().includes('overload')) {
-        errorMessage = 'AI servers are currently overloaded. Please try again in a moment.';
-      }
-
-      return res.status(lastStatus || 500).json({ error: errorMessage });
-    }
-
-    const data = await response.json();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LessonGen — AI lesson plan generator for educators</title>
+    <meta name="description" content="Generate professional CBSE 5E model lesson plans in seconds. Built for teachers.">
     
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error('Invalid response from Gemini API');
-    }
-
-    const generatedText = data.candidates[0].content.parts[0].text;
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    let lessonPlan;
-    try {
-      lessonPlan = JSON.parse(generatedText);
-    } catch (parseErr) {
-      console.error('JSON parse error:', generatedText);
-      throw new Error('Failed to parse lesson plan. Please try again.');
-    }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <style>
+        :root {
+            --bg: #FAF9F7;
+            --bg-paper: #FFFFFF;
+            --bg-subtle: #F5F4F1;
+            --ink: #1A1A1A;
+            --ink-soft: #3D3D3D;
+            --ink-muted: #6B6B6B;
+            --ink-light: #9A9A9A;
+            --accent: #D4A574;
+            --accent-hover: #C49560;
+            --accent-soft: #F5EDE0;
+            --border: #E8E6E1;
+            --border-soft: #EFEDE8;
+            --success: #2D8659;
+            --error: #B33434;
+            --error-bg: #FAEBEB;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --shadow-xs: 0 1px 2px rgba(26, 26, 26, 0.04);
+            --shadow-sm: 0 1px 3px rgba(26, 26, 26, 0.06), 0 1px 2px rgba(26, 26, 26, 0.04);
+            --shadow-md: 0 4px 12px rgba(26, 26, 26, 0.06), 0 2px 4px rgba(26, 26, 26, 0.04);
+            --shadow-lg: 0 12px 24px rgba(26, 26, 26, 0.08), 0 4px 8px rgba(26, 26, 26, 0.04);
+            
+            /* 5E phase colors */
+            --engage: #FF6B6B;
+            --explore: #4ECDC4;
+            --explain: #5B7FFF;
+            --elaborate: #FFA84D;
+            --evaluate: #9B5DE5;
+        }
 
-    return res.status(200).json(lessonPlan);
-  } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({ error: error.message || 'Server error occurred' });
-  }
-};
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--ink);
+            font-size: 15px;
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
 
-function buildPrompt(config) {
-  const language = config.language || 'English';
-  
-  // Language instruction block
-  const languageNote = language === 'English' 
-    ? '' 
-    : `
+        /* Navigation */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(250, 249, 247, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--ink);
+            font-weight: 600;
+            font-size: 15px;
+            letter-spacing: -0.015em;
+        }
+        .logo-mark {
+            width: 24px;
+            height: 24px;
+            background: var(--ink);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-mark svg {
+            width: 12px;
+            height: 12px;
+            stroke: var(--bg);
+            stroke-width: 2;
+            fill: none;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 13px;
+            color: var(--ink-muted);
+        }
+        .nav-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+        }
 
-============================
-LANGUAGE REQUIREMENT (CRITICAL)
-============================
+        /* Hero */
+        .hero {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 32px 60px;
+        }
+        .hero-eyebrow {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink-muted);
+            margin-bottom: 24px;
+        }
+        .hero-eyebrow-dot {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            background: var(--accent);
+            border-radius: 50%;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        .hero-title {
+            font-weight: 600;
+            font-size: clamp(36px, 5vw, 56px);
+            line-height: 1.05;
+            letter-spacing: -0.035em;
+            color: var(--ink);
+            margin-bottom: 20px;
+            max-width: 880px;
+        }
+        .hero-title-accent {
+            color: var(--ink-muted);
+            font-weight: 400;
+        }
+        .hero-subtitle {
+            max-width: 600px;
+            font-size: 17px;
+            line-height: 1.5;
+            color: var(--ink-soft);
+        }
 
-Generate ALL TEXT CONTENT of the lesson plan in ${language}. This includes:
-- Title
-- Learning objectives
-- Materials list
-- Prior knowledge description
-- All phase activities, dialogue, and explanations
-- Differentiation strategies
-- Homework description and tasks
-- Expected outcomes
-- Teacher tips
-- Next lesson preview
+        /* 5E Visual */
+        .five-e-strip {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 32px 56px;
+        }
+        .five-e-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+        }
+        .five-e-item {
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 16px;
+            text-align: center;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .five-e-item:hover {
+            border-color: var(--ink-light);
+            transform: translateY(-2px);
+        }
+        .five-e-letter {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .five-e-item:nth-child(1) .five-e-letter { background: var(--engage); }
+        .five-e-item:nth-child(2) .five-e-letter { background: var(--explore); }
+        .five-e-item:nth-child(3) .five-e-letter { background: var(--explain); }
+        .five-e-item:nth-child(4) .five-e-letter { background: var(--elaborate); }
+        .five-e-item:nth-child(5) .five-e-letter { background: var(--evaluate); }
+        .five-e-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ink);
+            margin-bottom: 2px;
+        }
+        .five-e-time {
+            font-size: 11px;
+            color: var(--ink-muted);
+        }
 
-KEEP these in English (do NOT translate):
-- JSON keys/field names ("title", "metadata", "phases", "engage", etc.)
-- The metadata values for: "board", "duration", "model"
-- Bloom's Taxonomy level names if used (Remember, Understand, etc.)
-- Subject and chapter names if originally in English
+        /* Main */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 32px 80px;
+        }
+        .form-wrapper {
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        .section {
+            padding: 36px 44px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .section:last-of-type { border-bottom: none; }
+        .section-header {
+            margin-bottom: 24px;
+        }
+        .section-title {
+            font-size: 19px;
+            font-weight: 600;
+            color: var(--ink);
+            letter-spacing: -0.015em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .section-optional {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--ink-muted);
+            background: var(--bg-subtle);
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: lowercase;
+            border: 1px solid var(--border);
+        }
+        .section-subtitle {
+            font-size: 14px;
+            color: var(--ink-muted);
+        }
 
-Use natural, grammatically correct ${language}. For technical/scientific terms, you may use English terminology where commonly understood (e.g., "DNA", "photosynthesis", "algorithm").
+        /* Form */
+        .field-group { display: grid; gap: 20px; }
+        .field-group.two-col { grid-template-columns: 1fr 1fr; gap: 20px; }
+        .field { display: flex; flex-direction: column; gap: 8px; }
+        .field-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+        .field-input,
+        .field-select,
+        .field-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 14px;
+            color: var(--ink);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .field-input:hover,
+        .field-select:hover,
+        .field-textarea:hover {
+            border-color: var(--ink-light);
+        }
+        .field-input:focus,
+        .field-select:focus,
+        .field-textarea:focus {
+            outline: none;
+            border-color: var(--ink);
+            box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.06);
+        }
+        .field-textarea {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
+        .field-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5L5 6.5L8 3.5' stroke='%236B6B6B' stroke-width='1.25' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+            cursor: pointer;
+        }
 
-For Indian languages, use proper script (Devanagari for Hindi/Marathi, Tamil script for Tamil, etc.).
-`;
+        /* Generate */
+        .generate-section {
+            padding: 24px 44px;
+            background: var(--bg-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            border-top: 1px solid var(--border-soft);
+        }
+        .generate-meta {
+            font-size: 13px;
+            color: var(--ink-muted);
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--ink);
+            color: var(--bg-paper);
+            border: none;
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-primary:hover {
+            background: #000;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        .btn-primary:disabled {
+            background: var(--ink-light);
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-primary svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
 
-  return `You are an expert CBSE-trained educator creating a professional 40-minute lesson plan using the 5E Instructional Model (Engage, Explore, Explain, Elaborate, Evaluate).
+        /* Loading */
+        .loading {
+            display: none;
+            padding: 48px 44px;
+            text-align: center;
+        }
+        .loading.active { display: block; }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2.5px solid var(--border);
+            border-top-color: var(--ink);
+            border-radius: 50%;
+            margin: 0 auto 18px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            font-size: 16px;
+            color: var(--ink);
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .loading-hint {
+            font-size: 13px;
+            color: var(--ink-muted);
+        }
 
-============================
-CONTEXT
-============================
-- Curriculum Board: ${config.board}
-- Class/Grade: ${config.classLevel}
-- Subject: ${config.subject}
-- Chapter: ${config.chapter}
-- Specific Topic: ${config.topic || config.chapter}
-- Total Duration: 40 minutes
-- Output Language: ${language}
-${config.learningObjective ? `- Teacher's specific learning objective: ${config.learningObjective}` : ''}
-${config.teacherNotes ? `- Additional teacher notes: ${config.teacherNotes}` : ''}
-${languageNote}
+        .error {
+            display: none;
+            margin: 0 44px 24px;
+            padding: 12px 14px;
+            background: var(--error-bg);
+            border: 1px solid rgba(179, 52, 52, 0.2);
+            border-radius: var(--radius);
+            color: var(--error);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .error.active { display: block; }
 
-============================
-5E MODEL TIME ALLOCATION (40 min total)
-============================
-- Engage: 5 minutes
-- Explore: 8 minutes
-- Explain: 12 minutes
-- Elaborate: 10 minutes
-- Evaluate: 5 minutes
+        /* Lesson Plan Display */
+        .lesson-plan {
+            display: none;
+            margin-top: 60px;
+        }
+        .lesson-plan.active { display: block; }
 
-============================
-WHAT TO GENERATE
-============================
+        .plan-header {
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 36px 44px;
+            margin-bottom: 24px;
+        }
+        .plan-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--ink);
+            letter-spacing: -0.025em;
+            margin-bottom: 16px;
+            line-height: 1.15;
+        }
+        .plan-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 0;
+            font-size: 13px;
+            color: var(--ink-muted);
+        }
+        .plan-meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .plan-meta-label {
+            font-weight: 600;
+            color: var(--ink-soft);
+        }
 
-Generate a complete, professional CBSE-style lesson plan with:
+        .plan-section {
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px 32px;
+            margin-bottom: 16px;
+        }
+        .plan-section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.01em;
+        }
+        .plan-section-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            background: var(--bg-subtle);
+            border-radius: 6px;
+            font-size: 14px;
+        }
 
-1. Clear learning objectives (3-4 measurable, Bloom's-aligned objectives)
-2. Detailed materials & resources needed
-3. Each 5E phase with specific activities and teacher dialogue
-4. Differentiation strategies for slow & fast learners
-5. Assessment methods
-6. Homework assignment
-7. Expected learning outcomes
+        .plan-list {
+            list-style: none;
+            padding: 0;
+        }
+        .plan-list li {
+            padding: 8px 0 8px 22px;
+            position: relative;
+            font-size: 14px;
+            line-height: 1.55;
+            color: var(--ink-soft);
+        }
+        .plan-list li::before {
+            content: '•';
+            position: absolute;
+            left: 6px;
+            top: 8px;
+            color: var(--accent);
+            font-weight: 700;
+        }
 
-============================
-QUALITY GUIDELINES
-============================
+        /* Phase cards (5E) */
+        .phase-card {
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px 32px;
+            margin-bottom: 14px;
+            position: relative;
+            border-left-width: 4px;
+        }
+        .phase-card[data-phase="engage"] { border-left-color: var(--engage); }
+        .phase-card[data-phase="explore"] { border-left-color: var(--explore); }
+        .phase-card[data-phase="explain"] { border-left-color: var(--explain); }
+        .phase-card[data-phase="elaborate"] { border-left-color: var(--elaborate); }
+        .phase-card[data-phase="evaluate"] { border-left-color: var(--evaluate); }
 
-- Use age-appropriate language and examples for Class ${config.classLevel} students
-- Include specific Indian context examples where relevant (Indian cities, real-life scenarios from Indian classrooms)
-- Suggest concrete activities students can DO (not just listen)
-- Provide actual sample questions teachers can ask
-- Include realistic time estimates that add up to 40 minutes
-- Make it immediately usable — no vague suggestions
+        .phase-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+        .phase-letter {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .phase-card[data-phase="engage"] .phase-letter { background: var(--engage); }
+        .phase-card[data-phase="explore"] .phase-letter { background: var(--explore); }
+        .phase-card[data-phase="explain"] .phase-letter { background: var(--explain); }
+        .phase-card[data-phase="elaborate"] .phase-letter { background: var(--elaborate); }
+        .phase-card[data-phase="evaluate"] .phase-letter { background: var(--evaluate); }
 
-============================
-OUTPUT FORMAT
-============================
+        .phase-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--ink);
+            letter-spacing: -0.015em;
+        }
+        .phase-duration {
+            margin-left: auto;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--bg-subtle);
+            padding: 4px 10px;
+            border-radius: 4px;
+            color: var(--ink-muted);
+        }
+        .phase-purpose {
+            font-size: 13px;
+            color: var(--ink-muted);
+            margin-bottom: 16px;
+            font-style: italic;
+        }
+        .phase-block {
+            margin-bottom: 14px;
+        }
+        .phase-block:last-child { margin-bottom: 0; }
+        .phase-block-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--ink-muted);
+            margin-bottom: 8px;
+        }
+        .phase-dialogue {
+            background: var(--bg-subtle);
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: var(--ink-soft);
+            border-left: 2px solid var(--ink-light);
+            font-style: italic;
+        }
 
-Return ONLY valid JSON. No markdown, no backticks, no explanation. Start with { and end with }.
+        /* Two-column for differentiation */
+        .two-column-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .diff-box {
+            background: var(--bg-subtle);
+            padding: 16px 18px;
+            border-radius: 8px;
+        }
+        .diff-box-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ink);
+            margin-bottom: 10px;
+        }
 
-Use this exact structure:
+        /* Export */
+        .export-footer {
+            margin-top: 48px;
+            padding: 32px 40px;
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .export-footer-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--ink);
+            margin-bottom: 4px;
+        }
+        .export-footer-subtitle {
+            font-size: 13px;
+            color: var(--ink-muted);
+        }
+        .export-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 16px;
+            background: var(--bg-paper);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: var(--font);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-secondary:hover {
+            border-color: var(--ink);
+            background: var(--bg-subtle);
+            transform: translateY(-1px);
+        }
+        .btn-secondary svg {
+            width: 13px;
+            height: 13px;
+            stroke: currentColor;
+            stroke-width: 1.75;
+            fill: none;
+        }
 
-{
-  "title": "Topic Name",
-  "metadata": {
-    "board": "${config.board}",
-    "class": "${config.classLevel}",
-    "subject": "${config.subject}",
-    "chapter": "${config.chapter}",
-    "topic": "${config.topic || config.chapter}",
-    "duration": "40 minutes",
-    "model": "5E Instructional Model"
-  },
-  "learningObjectives": [
-    "Students will be able to define... (Remember level)",
-    "Students will be able to explain... (Understand level)",
-    "Students will be able to apply... (Apply level)",
-    "Students will be able to analyze... (Analyze level)"
-  ],
-  "materials": [
-    "Whiteboard and markers",
-    "Specific item 1 with details",
-    "Specific item 2 with details",
-    "NCERT textbook page references"
-  ],
-  "priorKnowledge": "What students should already know before this lesson (1-2 sentences)",
-  "phases": {
-    "engage": {
-      "duration": "5 minutes",
-      "purpose": "Hook students and activate prior knowledge",
-      "activities": [
-        "Specific activity 1 with details",
-        "Specific activity 2 with details"
-      ],
-      "teacherDialogue": [
-        "Sample question or statement teacher can use",
-        "Another sample dialogue"
-      ],
-      "studentInvolvement": "What students will be doing during this phase"
-    },
-    "explore": {
-      "duration": "8 minutes",
-      "purpose": "Students investigate and discover concepts hands-on",
-      "activities": [
-        "Hands-on activity with specific instructions",
-        "Investigation or discussion activity"
-      ],
-      "teacherDialogue": [
-        "Guiding questions"
-      ],
-      "studentInvolvement": "Specific actions students take"
-    },
-    "explain": {
-      "duration": "12 minutes",
-      "purpose": "Formal teaching of concepts",
-      "activities": [
-        "Direct teaching points",
-        "Diagrams to draw",
-        "Examples to give"
-      ],
-      "keyContent": [
-        "Concept 1: explanation",
-        "Concept 2: explanation",
-        "Important formula or definition"
-      ],
-      "teacherDialogue": [
-        "Sample explanations teachers can use"
-      ]
-    },
-    "elaborate": {
-      "duration": "10 minutes",
-      "purpose": "Apply learning to new contexts",
-      "activities": [
-        "Application exercise",
-        "Real-world example or problem"
-      ],
-      "teacherDialogue": [
-        "Discussion prompts to deepen understanding"
-      ],
-      "studentInvolvement": "How students apply concepts"
-    },
-    "evaluate": {
-      "duration": "5 minutes",
-      "purpose": "Check student understanding",
-      "activities": [
-        "Quick assessment activity",
-        "Exit ticket or quick quiz"
-      ],
-      "assessmentQuestions": [
-        "Sample question 1 with expected answer",
-        "Sample question 2 with expected answer",
-        "Sample question 3 with expected answer"
-      ]
-    }
-  },
-  "differentiation": {
-    "forStrugglingLearners": [
-      "Strategy 1 to support struggling students",
-      "Strategy 2"
-    ],
-    "forAdvancedLearners": [
-      "Extension activity 1",
-      "Challenge problem"
-    ]
-  },
-  "homework": {
-    "description": "Brief description of homework assignment",
-    "tasks": [
-      "Specific task 1",
-      "Specific task 2",
-      "Specific task 3"
-    ],
-    "estimatedTime": "20-30 minutes"
-  },
-  "expectedOutcomes": [
-    "By end of lesson, 80% of students will be able to...",
-    "70% will be able to...",
-    "60% will be able to..."
-  ],
-  "teacherTips": [
-    "Practical tip 1 for delivering this lesson",
-    "Common student misconception to watch for",
-    "Backup plan if activity runs short"
-  ],
-  "nextLessonPreview": "Brief preview of what comes next (1-2 sentences)"
-}
+        /* Footer */
+        .footer {
+            max-width: 1200px;
+            margin: 60px auto 0;
+            padding: 32px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: var(--ink-muted);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .footer a {
+            color: var(--ink);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
 
-${language !== 'English' ? `\nFINAL REMINDER: All text content (objectives, activities, dialogue, tips, etc.) MUST be in ${language}. Use natural ${language} phrasing that an Indian teacher would actually use in a classroom.` : ''}`;
-}
+        @media (max-width: 900px) {
+            .nav-inner { padding: 14px 20px; }
+            .nav-right { display: none; }
+            .hero { padding: 56px 20px 48px; }
+            .five-e-strip { padding: 0 20px 40px; }
+            .five-e-row { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+            .five-e-item { padding: 12px 6px; }
+            .five-e-letter { width: 26px; height: 26px; font-size: 12px; }
+            .five-e-name { font-size: 11px; }
+            .five-e-time { font-size: 10px; }
+            .main { padding: 0 20px 48px; }
+            .section { padding: 28px 24px; }
+            .field-group.two-col { grid-template-columns: 1fr; }
+            .generate-section { padding: 20px 24px; flex-direction: column; align-items: stretch; }
+            .btn-primary { justify-content: center; }
+            .plan-header { padding: 28px 24px; }
+            .plan-title { font-size: 24px; }
+            .plan-section, .phase-card { padding: 22px 22px; }
+            .two-column-grid { grid-template-columns: 1fr; }
+            .export-footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
+            .footer { padding: 24px 20px; flex-direction: column; }
+        }
+
+        @media print {
+            .nav, .hero, .five-e-strip, .form-wrapper, .footer, .export-footer { display: none !important; }
+            .lesson-plan { margin-top: 0 !important; }
+            body { background: white; }
+            .plan-section, .phase-card, .plan-header { box-shadow: none; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="logo">
+                <div class="logo-mark">
+                    <svg viewBox="0 0 16 16"><path d="M3 2h10v12H3z M5 5h6 M5 8h6 M5 11h4"/></svg>
+                </div>
+                LessonGen
+            </a>
+            <div class="nav-right">
+                <span class="nav-status">
+                    <span class="status-dot"></span>
+                    All systems operational
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-eyebrow">
+            <span class="hero-eyebrow-dot"></span>
+            AI lesson plan generator for educators
+        </div>
+        <h1 class="hero-title">
+            Plan smarter lessons <span class="hero-title-accent">in seconds, not hours.</span>
+        </h1>
+        <p class="hero-subtitle">
+            Generate professional 40-minute CBSE lesson plans following the proven 5E Instructional Model. Built for teachers who want to focus on teaching, not paperwork.
+        </p>
+    </section>
+
+    <section class="five-e-strip">
+        <div class="five-e-row">
+            <div class="five-e-item">
+                <div class="five-e-letter">E</div>
+                <div class="five-e-name">Engage</div>
+                <div class="five-e-time">5 min</div>
+            </div>
+            <div class="five-e-item">
+                <div class="five-e-letter">E</div>
+                <div class="five-e-name">Explore</div>
+                <div class="five-e-time">8 min</div>
+            </div>
+            <div class="five-e-item">
+                <div class="five-e-letter">E</div>
+                <div class="five-e-name">Explain</div>
+                <div class="five-e-time">12 min</div>
+            </div>
+            <div class="five-e-item">
+                <div class="five-e-letter">E</div>
+                <div class="five-e-name">Elaborate</div>
+                <div class="five-e-time">10 min</div>
+            </div>
+            <div class="five-e-item">
+                <div class="five-e-letter">E</div>
+                <div class="five-e-name">Evaluate</div>
+                <div class="five-e-time">5 min</div>
+            </div>
+        </div>
+    </section>
+
+    <main class="main">
+        <div class="form-wrapper">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Educational context</h2>
+                    <p class="section-subtitle">Tell us about your class and topic.</p>
+                </div>
+
+                <div class="field-group two-col">
+                    <div class="field">
+                        <label class="field-label">Curriculum board</label>
+                        <select class="field-select" id="boardSelect">
+                            <option value="CBSE" selected>CBSE — Central Board</option>
+                            <option value="ICSE">ICSE — Indian Certificate</option>
+                            <option value="State Board">State Board</option>
+                            <option value="IB">IB — International Baccalaureate</option>
+                            <option value="Cambridge">Cambridge International</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Class / Grade</label>
+                        <select class="field-select" id="classSelect">
+                            <option value="6">Class 6</option>
+                            <option value="7">Class 7</option>
+                            <option value="8">Class 8</option>
+                            <option value="9">Class 9</option>
+                            <option value="10" selected>Class 10</option>
+                            <option value="11">Class 11</option>
+                            <option value="12">Class 12</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field-group two-col" style="margin-top: 20px;">
+                    <div class="field">
+                        <label class="field-label">Subject</label>
+                        <input type="text" class="field-input" id="subjectInput" placeholder="e.g., Science, Mathematics, English" value="Science">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Chapter</label>
+                        <input type="text" class="field-input" id="chapterInput" placeholder="e.g., Life Processes">
+                    </div>
+                </div>
+
+                <div class="field-group two-col" style="margin-top: 20px;">
+                    <div class="field">
+                        <label class="field-label">Specific topic to focus on (optional)</label>
+                        <input type="text" class="field-input" id="topicInput" placeholder="e.g., Photosynthesis (leave blank to cover whole chapter)">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Output language</label>
+                        <select class="field-select" id="languageSelect">
+                            <option value="English" selected>English</option>
+                            <option value="Hindi">हिन्दी (Hindi)</option>
+                            <option value="Marathi">मराठी (Marathi)</option>
+                            <option value="Tamil">தமிழ் (Tamil)</option>
+                            <option value="Telugu">తెలుగు (Telugu)</option>
+                            <option value="Bengali">বাংলা (Bengali)</option>
+                            <option value="Gujarati">ગુજરાતી (Gujarati)</option>
+                            <option value="Kannada">ಕನ್ನಡ (Kannada)</option>
+                            <option value="Malayalam">മലയാളം (Malayalam)</option>
+                            <option value="Punjabi">ਪੰਜਾਬੀ (Punjabi)</option>
+                            <option value="Urdu">اردو (Urdu)</option>
+                            <option value="Spanish">Español (Spanish)</option>
+                            <option value="French">Français (French)</option>
+                            <option value="Arabic">العربية (Arabic)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Customization <span class="section-optional">optional</span></h2>
+                    <p class="section-subtitle">Add specific objectives or notes for personalized planning.</p>
+                </div>
+
+                <div class="field-group">
+                    <div class="field">
+                        <label class="field-label">Specific learning objective (optional)</label>
+                        <input type="text" class="field-input" id="objectiveInput" placeholder="e.g., Students should understand the role of chlorophyll">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Additional notes for the AI (optional)</label>
+                        <textarea class="field-textarea" id="notesInput" placeholder="e.g., 'Class has many slow learners' or 'Focus on practical examples' or 'Connect to last week's chapter on plants'"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="generate-section">
+                <div class="generate-meta">
+                    Typically generates in 10–20 seconds
+                </div>
+                <button class="btn-primary" id="generateBtn">
+                    Generate lesson plan
+                    <svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+                </button>
+            </div>
+
+            <div class="error" id="errorMessage"></div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Crafting your lesson plan</div>
+                <div class="loading-hint">Designing activities and structuring content</div>
+            </div>
+        </div>
+
+        <div class="lesson-plan" id="planDisplay"></div>
+    </main>
+
+    <footer class="footer">
+        <div>LessonGen · Free for educators</div>
+        <div>Powered by <a href="https://ai.google.dev" target="_blank">Google Gemini</a></div>
+    </footer>
+
+    <script>
+        let generatedPlan = null;
+        const API_ENDPOINT = '/api/generate-lesson';
+
+        document.getElementById('generateBtn').addEventListener('click', generatePlan);
+
+        async function generatePlan() {
+            const errorMessage = document.getElementById('errorMessage');
+            const loading = document.getElementById('loading');
+            const generateBtn = document.getElementById('generateBtn');
+            const planDisplay = document.getElementById('planDisplay');
+            errorMessage.classList.remove('active');
+
+            const board = document.getElementById('boardSelect').value;
+            const classLevel = document.getElementById('classSelect').value;
+            const subject = document.getElementById('subjectInput').value.trim();
+            const chapter = document.getElementById('chapterInput').value.trim();
+            const topic = document.getElementById('topicInput').value.trim();
+            const language = document.getElementById('languageSelect').value;
+            const learningObjective = document.getElementById('objectiveInput').value.trim();
+            const teacherNotes = document.getElementById('notesInput').value.trim();
+
+            if (!subject) { showError('Please enter a subject.'); return; }
+            if (!chapter) { showError('Please enter a chapter name.'); return; }
+
+            loading.classList.add('active');
+            generateBtn.disabled = true;
+            planDisplay.classList.remove('active');
+
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        board, classLevel, subject, chapter, topic,
+                        language, learningObjective, teacherNotes
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(errorData.error || `Request failed: ${response.status}`);
+                }
+
+                const plan = await response.json();
+                generatedPlan = plan;
+                displayPlan(plan);
+                planDisplay.classList.add('active');
+                planDisplay.scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message);
+            } finally {
+                loading.classList.remove('active');
+                generateBtn.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = msg;
+            errorMessage.classList.add('active');
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function displayPlan(plan) {
+            const display = document.getElementById('planDisplay');
+            const m = plan.metadata || {};
+            
+            const renderList = (items) => {
+                if (!items || !items.length) return '';
+                return '<ul class="plan-list">' + items.map(item => `<li>${escapeHTML(item)}</li>`).join('') + '</ul>';
+            };
+
+            const renderPhase = (phaseKey, phase, letter) => {
+                if (!phase) return '';
+                const phaseNames = { engage: 'Engage', explore: 'Explore', explain: 'Explain', elaborate: 'Elaborate', evaluate: 'Evaluate' };
+                
+                let dialogueHTML = '';
+                if (phase.teacherDialogue && phase.teacherDialogue.length) {
+                    dialogueHTML = `<div class="phase-block">
+                        <div class="phase-block-label">Sample teacher dialogue</div>
+                        ${phase.teacherDialogue.map(d => `<div class="phase-dialogue">"${escapeHTML(d)}"</div>`).join('')}
+                    </div>`;
+                }
+
+                let keyContentHTML = '';
+                if (phase.keyContent && phase.keyContent.length) {
+                    keyContentHTML = `<div class="phase-block">
+                        <div class="phase-block-label">Key content to cover</div>
+                        ${renderList(phase.keyContent)}
+                    </div>`;
+                }
+
+                let assessmentHTML = '';
+                if (phase.assessmentQuestions && phase.assessmentQuestions.length) {
+                    assessmentHTML = `<div class="phase-block">
+                        <div class="phase-block-label">Assessment questions</div>
+                        ${renderList(phase.assessmentQuestions)}
+                    </div>`;
+                }
+
+                let studentHTML = '';
+                if (phase.studentInvolvement) {
+                    studentHTML = `<div class="phase-block">
+                        <div class="phase-block-label">Student involvement</div>
+                        <div style="font-size: 13px; color: var(--ink-soft);">${escapeHTML(phase.studentInvolvement)}</div>
+                    </div>`;
+                }
+
+                return `
+                    <div class="phase-card" data-phase="${phaseKey}">
+                        <div class="phase-header">
+                            <div class="phase-letter">${letter}</div>
+                            <div class="phase-name">${phaseNames[phaseKey]}</div>
+                            <div class="phase-duration">⏱ ${escapeHTML(phase.duration || '')}</div>
+                        </div>
+                        <div class="phase-purpose">${escapeHTML(phase.purpose || '')}</div>
+                        <div class="phase-block">
+                            <div class="phase-block-label">Activities</div>
+                            ${renderList(phase.activities)}
+                        </div>
+                        ${keyContentHTML}
+                        ${dialogueHTML}
+                        ${studentHTML}
+                        ${assessmentHTML}
+                    </div>
+                `;
+            };
+
+            let html = `
+                <div class="plan-header">
+                    <h2 class="plan-title">${escapeHTML(plan.title || 'Lesson Plan')}</h2>
+                    <div class="plan-meta">
+                        <div class="plan-meta-item"><span class="plan-meta-label">Board:</span> ${escapeHTML(m.board || '')}</div>
+                        <div class="plan-meta-item"><span class="plan-meta-label">Class:</span> ${escapeHTML(m.class || '')}</div>
+                        <div class="plan-meta-item"><span class="plan-meta-label">Subject:</span> ${escapeHTML(m.subject || '')}</div>
+                        <div class="plan-meta-item"><span class="plan-meta-label">Chapter:</span> ${escapeHTML(m.chapter || '')}</div>
+                        <div class="plan-meta-item"><span class="plan-meta-label">Duration:</span> ${escapeHTML(m.duration || '40 minutes')}</div>
+                        <div class="plan-meta-item"><span class="plan-meta-label">Model:</span> ${escapeHTML(m.model || '5E Instructional Model')}</div>
+                    </div>
+                </div>
+
+                <div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">🎯</span>Learning objectives</h3>
+                    ${renderList(plan.learningObjectives)}
+                </div>
+
+                <div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">📦</span>Materials & resources</h3>
+                    ${renderList(plan.materials)}
+                </div>
+
+                ${plan.priorKnowledge ? `<div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">📋</span>Prior knowledge required</h3>
+                    <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.55;">${escapeHTML(plan.priorKnowledge)}</p>
+                </div>` : ''}
+
+                <h3 style="font-size: 14px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 32px 0 14px;">Lesson Flow — 5E Model</h3>
+                
+                ${plan.phases ? renderPhase('engage', plan.phases.engage, 'E') : ''}
+                ${plan.phases ? renderPhase('explore', plan.phases.explore, 'E') : ''}
+                ${plan.phases ? renderPhase('explain', plan.phases.explain, 'E') : ''}
+                ${plan.phases ? renderPhase('elaborate', plan.phases.elaborate, 'E') : ''}
+                ${plan.phases ? renderPhase('evaluate', plan.phases.evaluate, 'E') : ''}
+
+                ${plan.differentiation ? `<div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">🌱</span>Differentiation strategies</h3>
+                    <div class="two-column-grid">
+                        <div class="diff-box">
+                            <div class="diff-box-title">For struggling learners</div>
+                            ${renderList(plan.differentiation.forStrugglingLearners)}
+                        </div>
+                        <div class="diff-box">
+                            <div class="diff-box-title">For advanced learners</div>
+                            ${renderList(plan.differentiation.forAdvancedLearners)}
+                        </div>
+                    </div>
+                </div>` : ''}
+
+                ${plan.homework ? `<div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">📝</span>Homework assignment</h3>
+                    ${plan.homework.description ? `<p style="font-size: 14px; color: var(--ink-soft); margin-bottom: 12px;">${escapeHTML(plan.homework.description)}</p>` : ''}
+                    ${renderList(plan.homework.tasks)}
+                    ${plan.homework.estimatedTime ? `<p style="font-size: 12px; color: var(--ink-muted); margin-top: 12px;"><strong>Estimated time:</strong> ${escapeHTML(plan.homework.estimatedTime)}</p>` : ''}
+                </div>` : ''}
+
+                ${plan.expectedOutcomes ? `<div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">📊</span>Expected outcomes</h3>
+                    ${renderList(plan.expectedOutcomes)}
+                </div>` : ''}
+
+                ${plan.teacherTips ? `<div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">💡</span>Teacher tips</h3>
+                    ${renderList(plan.teacherTips)}
+                </div>` : ''}
+
+                ${plan.nextLessonPreview ? `<div class="plan-section">
+                    <h3 class="plan-section-title"><span class="plan-section-icon">⏭</span>Coming up next</h3>
+                    <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.55; font-style: italic;">${escapeHTML(plan.nextLessonPreview)}</p>
+                </div>` : ''}
+
+                <div class="export-footer">
+                    <div>
+                        <h3 class="export-footer-title">Ready to use?</h3>
+                        <p class="export-footer-subtitle">Download your lesson plan to share or print.</p>
+                    </div>
+                    <div class="export-bar">
+                        <button class="btn-secondary" id="exportWord">
+                            <svg viewBox="0 0 16 16"><path d="M3 2h10l1 2v10H3z M5 5h6 M5 8h6 M5 11h4"/></svg>
+                            Word
+                        </button>
+                        <button class="btn-secondary" id="exportPrint">
+                            <svg viewBox="0 0 16 16"><path d="M4 3h8v3H4z M4 11h8v3H4z M2 6h12v5H2z"/></svg>
+                            Print / PDF
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            display.innerHTML = html;
+            
+            document.getElementById('exportWord').addEventListener('click', exportToWord);
+            document.getElementById('exportPrint').addEventListener('click', () => {
+                const originalTitle = document.title;
+                document.title = getExportFilename();
+                window.print();
+                setTimeout(() => { document.title = originalTitle; }, 1000);
+            });
+        }
+
+        function getExportFilename() {
+            const classValue = document.getElementById('classSelect').value;
+            const chapter = document.getElementById('chapterInput').value.trim();
+            const clean = (str) => String(str || '').trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+            const chapterClean = clean(chapter) || 'Lesson';
+            return `${chapterClean}_LessonPlan_Class${classValue}`;
+        }
+
+        async function exportToWord() {
+            if (!generatedPlan) return;
+            
+            try {
+                const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
+                const plan = generatedPlan;
+                const m = plan.metadata || {};
+
+                const sections = [];
+                
+                // Title
+                sections.push(new Paragraph({
+                    children: [new TextRun({ text: plan.title || 'Lesson Plan', bold: true, size: 36 })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 }
+                }));
+
+                // Metadata
+                const metaParts = [
+                    `Board: ${m.board || ''}`,
+                    `Class: ${m.class || ''}`,
+                    `Subject: ${m.subject || ''}`,
+                    `Chapter: ${m.chapter || ''}`,
+                    `Duration: ${m.duration || '40 minutes'}`,
+                    `Model: ${m.model || '5E Instructional Model'}`
+                ];
+                sections.push(new Paragraph({
+                    children: [new TextRun({ text: metaParts.join(' · '), size: 20, italics: true })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 400 }
+                }));
+
+                const addHeading = (text) => {
+                    sections.push(new Paragraph({
+                        children: [new TextRun({ text: text, bold: true, size: 26 })],
+                        spacing: { before: 400, after: 150 }
+                    }));
+                };
+
+                const addBullet = (text) => {
+                    sections.push(new Paragraph({
+                        children: [new TextRun({ text: '• ' + text, size: 22 })],
+                        spacing: { after: 100 },
+                        indent: { left: 360 }
+                    }));
+                };
+
+                const addPara = (text, opts = {}) => {
+                    sections.push(new Paragraph({
+                        children: [new TextRun({ text: text, size: 22, ...opts })],
+                        spacing: { after: 150 }
+                    }));
+                };
+
+                // Learning Objectives
+                if (plan.learningObjectives) {
+                    addHeading('🎯 Learning Objectives');
+                    plan.learningObjectives.forEach(o => addBullet(o));
+                }
+
+                // Materials
+                if (plan.materials) {
+                    addHeading('📦 Materials & Resources');
+                    plan.materials.forEach(m => addBullet(m));
+                }
+
+                // Prior Knowledge
+                if (plan.priorKnowledge) {
+                    addHeading('📋 Prior Knowledge Required');
+                    addPara(plan.priorKnowledge);
+                }
+
+                // Phases
+                addHeading('Lesson Flow — 5E Model');
+                
+                if (plan.phases) {
+                    const phaseNames = { engage: 'ENGAGE', explore: 'EXPLORE', explain: 'EXPLAIN', elaborate: 'ELABORATE', evaluate: 'EVALUATE' };
+                    
+                    Object.keys(phaseNames).forEach(key => {
+                        const phase = plan.phases[key];
+                        if (!phase) return;
+                        
+                        sections.push(new Paragraph({
+                            children: [new TextRun({ text: `${phaseNames[key]} (${phase.duration || ''})`, bold: true, size: 24, color: '1A1A1A' })],
+                            spacing: { before: 300, after: 100 }
+                        }));
+                        
+                        if (phase.purpose) {
+                            addPara(`Purpose: ${phase.purpose}`, { italics: true });
+                        }
+                        
+                        if (phase.activities) {
+                            addPara('Activities:', { bold: true });
+                            phase.activities.forEach(a => addBullet(a));
+                        }
+                        
+                        if (phase.keyContent) {
+                            addPara('Key Content:', { bold: true });
+                            phase.keyContent.forEach(c => addBullet(c));
+                        }
+                        
+                        if (phase.teacherDialogue) {
+                            addPara('Teacher Dialogue:', { bold: true });
+                            phase.teacherDialogue.forEach(d => addBullet(`"${d}"`));
+                        }
+                        
+                        if (phase.studentInvolvement) {
+                            addPara(`Student Involvement: ${phase.studentInvolvement}`);
+                        }
+                        
+                        if (phase.assessmentQuestions) {
+                            addPara('Assessment Questions:', { bold: true });
+                            phase.assessmentQuestions.forEach(q => addBullet(q));
+                        }
+                    });
+                }
+
+                // Differentiation
+                if (plan.differentiation) {
+                    addHeading('🌱 Differentiation Strategies');
+                    if (plan.differentiation.forStrugglingLearners) {
+                        addPara('For Struggling Learners:', { bold: true });
+                        plan.differentiation.forStrugglingLearners.forEach(s => addBullet(s));
+                    }
+                    if (plan.differentiation.forAdvancedLearners) {
+                        addPara('For Advanced Learners:', { bold: true });
+                        plan.differentiation.forAdvancedLearners.forEach(s => addBullet(s));
+                    }
+                }
+
+                // Homework
+                if (plan.homework) {
+                    addHeading('📝 Homework Assignment');
+                    if (plan.homework.description) addPara(plan.homework.description);
+                    if (plan.homework.tasks) plan.homework.tasks.forEach(t => addBullet(t));
+                    if (plan.homework.estimatedTime) addPara(`Estimated Time: ${plan.homework.estimatedTime}`, { italics: true });
+                }
+
+                // Expected Outcomes
+                if (plan.expectedOutcomes) {
+                    addHeading('📊 Expected Outcomes');
+                    plan.expectedOutcomes.forEach(o => addBullet(o));
+                }
+
+                // Teacher Tips
+                if (plan.teacherTips) {
+                    addHeading('💡 Teacher Tips');
+                    plan.teacherTips.forEach(t => addBullet(t));
+                }
+
+                // Next Lesson
+                if (plan.nextLessonPreview) {
+                    addHeading('⏭ Coming Up Next');
+                    addPara(plan.nextLessonPreview, { italics: true });
+                }
+
+                const doc = new Document({
+                    sections: [{ children: sections }]
+                });
+
+                const blob = await Packer.toBlob(doc);
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${getExportFilename()}.docx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (err) {
+                console.error('Word export error:', err);
+                alert('Failed to export Word document: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
