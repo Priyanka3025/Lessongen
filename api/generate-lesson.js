@@ -148,9 +148,64 @@ function buildPrompt(config) {
   const language = config.language || 'English';
   
   // Language instruction block
-  const languageNote = language === 'English' 
-    ? '' 
-    : `
+  let languageNote = '';
+  
+  if (language === 'English') {
+    languageNote = '';
+  } else if (language === 'Hinglish') {
+    languageNote = `
+
+============================
+LANGUAGE REQUIREMENT — HINGLISH (CRITICAL)
+============================
+
+Generate ALL TEXT CONTENT in HINGLISH — a natural mix of Hindi and English used by Indian teachers in real classrooms.
+
+HINGLISH RULES:
+
+1. EXPLANATIONS in Hindi (using Devanagari script — हिन्दी में):
+   - Concepts, descriptions, instructions, dialogue
+   - Connecting words and phrases
+   - Activity descriptions
+   - Discussion prompts
+
+2. KEY TECHNICAL TERMS in English (kept as-is):
+   - Subject-specific terminology (Photosynthesis, Mitochondria, Algorithm, Pythagoras Theorem)
+   - Scientific names (DNA, RNA, ATP, pH)
+   - Mathematical terms (equation, derivative, integration, polynomial)
+   - Computer terms (variable, function, loop, array)
+   - Modern technical concepts that don't have natural Hindi equivalents
+
+3. STYLE — Sound like a real Indian teacher:
+   - Mix English nouns/verbs naturally into Hindi sentences
+   - Use English for things teachers/students naturally say in English
+   - Use code-switching like real classroom dialogue
+
+EXAMPLES OF GOOD HINGLISH:
+
+✓ "Photosynthesis का process समझाते हैं। इसमें plants sunlight का use करके food बनाते हैं।"
+✓ "Students को pair में बैठने को कहें और एक-दूसरे से discuss करवाएं।"
+✓ "Quadratic equation को solve करने के लिए हम formula use करेंगे।"
+✓ "Class में यह question पूछें: 'पौधों को survive करने के लिए क्या चाहिए?'"
+✓ "Activity 1: Group में leaf observation करें using magnifying glass।"
+✓ "DNA की structure double helix होती है — यह बहुत important concept है।"
+
+✗ AVOID (too much Hindi):
+"प्रकाश संश्लेषण की प्रक्रिया समझाते हैं। इसमें पादप सूर्य के प्रकाश का उपयोग करके भोजन बनाते हैं।"
+
+✗ AVOID (too much English):
+"We will explain the process of photosynthesis. Plants use sunlight to make food."
+
+KEEP these in English (do NOT translate):
+- JSON keys/field names ("title", "metadata", "phases", "engage", etc.)
+- The metadata values for: "board", "duration", "model"
+- Bloom's Taxonomy level names (Remember, Understand, Apply, etc.)
+- Phase names internally (engage, explore, etc.)
+
+GOAL: A teacher should be able to read the lesson plan aloud in their classroom and it should sound natural — exactly how Indian teachers actually teach. Mix Hindi grammar/structure with English technical vocabulary.
+`;
+  } else {
+    languageNote = `
 
 ============================
 LANGUAGE REQUIREMENT (CRITICAL)
@@ -178,6 +233,7 @@ Use natural, grammatically correct ${language}. For technical/scientific terms, 
 
 For Indian languages, use proper script (Devanagari for Hindi/Marathi, Tamil script for Tamil, etc.).
 `;
+  }
 
   return `You are an expert CBSE-trained educator creating a professional 40-minute lesson plan using the 5E Instructional Model (Engage, Explore, Explain, Elaborate, Evaluate).
 
@@ -362,5 +418,5 @@ Use this exact structure:
   "nextLessonPreview": "Brief preview of what comes next (1-2 sentences)"
 }
 
-${language !== 'English' ? `\nFINAL REMINDER: All text content (objectives, activities, dialogue, tips, etc.) MUST be in ${language}. Use natural ${language} phrasing that an Indian teacher would actually use in a classroom.` : ''}`;
+${language !== 'English' ? `\nFINAL REMINDER: All text content (objectives, activities, dialogue, tips, etc.) MUST be in ${language === 'Hinglish' ? 'HINGLISH (Hindi script with English technical terms mixed naturally — like a real Indian teacher speaks in class)' : language}. ${language === 'Hinglish' ? 'Mix Hindi explanations with English keywords. Example: "Photosynthesis का process समझाते हैं" not "We explain photosynthesis."' : `Use natural ${language} phrasing that an Indian teacher would actually use in a classroom.`}` : ''}`;
 }
