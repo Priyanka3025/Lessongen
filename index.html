@@ -802,10 +802,6 @@
                         <select class="field-select" id="boardSelect">
                             <option value="CBSE" selected>CBSE — Central Board</option>
                             <option value="ICSE">ICSE — Indian Certificate</option>
-                            <option value="State Board">State Board</option>
-                            <option value="IB">IB — International Baccalaureate</option>
-                            <option value="Cambridge">Cambridge International</option>
-                            <option value="Other">Other</option>
                         </select>
                     </div>
                     <div class="field">
@@ -825,11 +821,15 @@
                 <div class="field-group two-col" style="margin-top: 20px;">
                     <div class="field">
                         <label class="field-label">Subject</label>
-                        <input type="text" class="field-input" id="subjectInput" placeholder="e.g., Science, Mathematics, English" value="Science">
+                        <select class="field-select" id="subjectSelect">
+                            <option value="">Select a subject…</option>
+                        </select>
                     </div>
                     <div class="field">
                         <label class="field-label">Chapter</label>
-                        <input type="text" class="field-input" id="chapterInput" placeholder="e.g., Life Processes">
+                        <select class="field-select" id="chapterSelect" disabled>
+                            <option value="">Select subject first…</option>
+                        </select>
                     </div>
                 </div>
 
@@ -909,6 +909,182 @@
         let generatedPlan = null;
         const API_ENDPOINT = '/api/generate-lesson';
 
+        // ============================================================
+        // CHAPTER DATABASE (CBSE NCERT + ICSE)
+        // ============================================================
+        const CHAPTER_DATA = {
+            'CBSE': {
+                '6': {
+                    'Science': ['Components of Food', 'Sorting Materials into Groups', 'Separation of Substances', 'Getting to Know Plants', 'Body Movements', 'The Living Organisms and Their Surroundings', 'Motion and Measurement of Distances', 'Light, Shadows and Reflections', 'Electricity and Circuits', 'Fun with Magnets', 'Air Around Us', 'Water'],
+                    'Mathematics': ['Knowing Our Numbers', 'Whole Numbers', 'Playing with Numbers', 'Basic Geometrical Ideas', 'Understanding Elementary Shapes', 'Integers', 'Fractions', 'Decimals', 'Data Handling', 'Mensuration', 'Algebra', 'Ratio and Proportion', 'Symmetry', 'Practical Geometry'],
+                    'Social Science': ['What, Where, How and When (History)', 'On the Trail of the Earliest People', 'From Gathering to Growing Food', 'In the Earliest Cities', 'The Earth in the Solar System (Geography)', 'Globe: Latitudes and Longitudes', 'Motions of the Earth', 'Maps', 'Major Domains of the Earth', 'Understanding Diversity (Civics)', 'Diversity and Discrimination', 'What is Government'],
+                    'English': ['Who Did Patricks Homework', 'How the Dog Found Himself a New Master', 'Taros Reward', 'An Indian-American Woman in Space', 'A Different Kind of School', 'Who I Am', 'Fair Play', 'A Game of Chance', 'Desert Animals', 'The Banyan Tree']
+                },
+                '7': {
+                    'Science': ['Nutrition in Plants', 'Nutrition in Animals', 'Heat', 'Acids, Bases and Salts', 'Physical and Chemical Changes', 'Respiration in Organisms', 'Transportation in Animals and Plants', 'Reproduction in Plants', 'Motion and Time', 'Electric Current and Its Effects', 'Light', 'Forests: Our Lifeline', 'Wastewater Story'],
+                    'Mathematics': ['Integers', 'Fractions and Decimals', 'Data Handling', 'Simple Equations', 'Lines and Angles', 'The Triangle and its Properties', 'Comparing Quantities', 'Rational Numbers', 'Perimeter and Area', 'Algebraic Expressions', 'Exponents and Powers', 'Symmetry', 'Visualising Solid Shapes'],
+                    'Social Science': ['Tracing Changes Through a Thousand Years (History)', 'New Kings and Kingdoms', 'The Delhi Sultans', 'The Mughal Empire', 'Environment (Geography)', 'Inside Our Earth', 'Our Changing Earth', 'Air', 'Water', 'On Equality (Civics)', 'Role of the Government in Health', 'How the State Government Works'],
+                    'English': ['Three Questions', 'A Gift of Chappals', 'Gopal and the Hilsa Fish', 'The Ashes That Made Trees Bloom', 'Quality', 'Expert Detectives', 'The Invention of Vita-Wonk', 'Fire: Friend and Foe', 'A Bicycle in Good Repair', 'The Story of Cricket']
+                },
+                '8': {
+                    'Science': ['Crop Production and Management', 'Microorganisms: Friend and Foe', 'Coal and Petroleum', 'Combustion and Flame', 'Conservation of Plants and Animals', 'Reproduction in Animals', 'Reaching the Age of Adolescence', 'Force and Pressure', 'Friction', 'Sound', 'Chemical Effects of Electric Current', 'Some Natural Phenomena', 'Light'],
+                    'Mathematics': ['Rational Numbers', 'Linear Equations in One Variable', 'Understanding Quadrilaterals', 'Data Handling', 'Squares and Square Roots', 'Cubes and Cube Roots', 'Comparing Quantities', 'Algebraic Expressions and Identities', 'Mensuration', 'Exponents and Powers', 'Direct and Inverse Proportions', 'Factorisation', 'Introduction to Graphs'],
+                    'Social Science': ['How, When and Where (History)', 'From Trade to Territory', 'Ruling the Countryside', 'Tribals, Dikus and the Vision of a Golden Age', 'When People Rebel', 'Resources (Geography)', 'Land, Soil, Water, Natural Vegetation', 'Mineral and Power Resources', 'Agriculture', 'Industries', 'The Indian Constitution (Civics)', 'Understanding Secularism', 'Parliament and the Making of Laws', 'Judiciary'],
+                    'English': ['The Best Christmas Present in the World', 'The Tsunami', 'Glimpses of the Past', 'Bepin Choudhurys Lapse of Memory', 'The Summit Within', 'This is Jodys Fawn', 'A Visit to Cambridge', 'A Short Monsoon Diary']
+                },
+                '9': {
+                    'Science': ['Matter in Our Surroundings', 'Is Matter Around Us Pure', 'Atoms and Molecules', 'Structure of the Atom', 'The Fundamental Unit of Life', 'Tissues', 'Motion', 'Force and Laws of Motion', 'Gravitation', 'Work and Energy', 'Sound', 'Improvement in Food Resources'],
+                    'Mathematics': ['Number Systems', 'Polynomials', 'Coordinate Geometry', 'Linear Equations in Two Variables', 'Introduction to Euclids Geometry', 'Lines and Angles', 'Triangles', 'Quadrilaterals', 'Circles', 'Herons Formula', 'Surface Areas and Volumes', 'Statistics'],
+                    'Social Science': ['The French Revolution (History)', 'Socialism in Europe and the Russian Revolution', 'Nazism and the Rise of Hitler', 'Forest Society and Colonialism', 'Pastoralists in the Modern World', 'India - Size and Location (Geography)', 'Physical Features of India', 'Drainage', 'Climate', 'Natural Vegetation and Wildlife', 'Population', 'What is Democracy Why Democracy (Civics)', 'Constitutional Design', 'Electoral Politics', 'Working of Institutions', 'Democratic Rights', 'The Story of Village Palampur (Economics)', 'People as Resource', 'Poverty as a Challenge', 'Food Security in India'],
+                    'English': ['The Fun They Had', 'The Sound of Music', 'The Little Girl', 'A Truly Beautiful Mind', 'The Snake and the Mirror', 'My Childhood', 'Packing', 'Reach for the Top', 'The Bond of Love', 'Kathmandu', 'If I Were You']
+                },
+                '10': {
+                    'Science': ['Chemical Reactions and Equations', 'Acids, Bases and Salts', 'Metals and Non-metals', 'Carbon and its Compounds', 'Life Processes', 'Control and Coordination', 'How do Organisms Reproduce', 'Heredity and Evolution', 'Light - Reflection and Refraction', 'The Human Eye and the Colourful World', 'Electricity', 'Magnetic Effects of Electric Current', 'Our Environment'],
+                    'Mathematics': ['Real Numbers', 'Polynomials', 'Pair of Linear Equations in Two Variables', 'Quadratic Equations', 'Arithmetic Progressions', 'Triangles', 'Coordinate Geometry', 'Introduction to Trigonometry', 'Some Applications of Trigonometry', 'Circles', 'Areas Related to Circles', 'Surface Areas and Volumes', 'Statistics', 'Probability'],
+                    'Social Science': ['The Rise of Nationalism in Europe (History)', 'Nationalism in India', 'The Making of a Global World', 'The Age of Industrialisation', 'Print Culture and the Modern World', 'Resources and Development (Geography)', 'Forest and Wildlife Resources', 'Water Resources', 'Agriculture', 'Minerals and Energy Resources', 'Manufacturing Industries', 'Lifelines of National Economy', 'Power Sharing (Civics)', 'Federalism', 'Gender, Religion and Caste', 'Political Parties', 'Outcomes of Democracy', 'Development (Economics)', 'Sectors of the Indian Economy', 'Money and Credit', 'Globalisation and the Indian Economy', 'Consumer Rights'],
+                    'English': ['A Letter to God', 'Nelson Mandela: Long Walk to Freedom', 'Two Stories about Flying', 'From the Diary of Anne Frank', 'Glimpses of India', 'Mijbil the Otter', 'Madam Rides the Bus', 'The Sermon at Benares', 'The Proposal', 'A Triumph of Surgery', 'The Thiefs Story', 'The Midnight Visitor', 'A Question of Trust', 'Footprints without Feet', 'The Making of a Scientist', 'The Necklace', 'Bholi', 'The Book That Saved the Earth'],
+                    'Hindi': ['सूरदास', 'तुलसीदास', 'देव', 'जयशंकर प्रसाद', 'सूर्यकांत त्रिपाठी निराला', 'नागार्जुन', 'गिरिजा कुमार माथुर', 'ऋतुराज', 'मंगलेश डबराल', 'स्वयं प्रकाश', 'रामवृक्ष बेनीपुरी', 'यशपाल', 'सर्वेश्वर दयाल सक्सेना', 'मन्नू भंडारी']
+                },
+                '11': {
+                    'Physics': ['Units and Measurements', 'Motion in a Straight Line', 'Motion in a Plane', 'Laws of Motion', 'Work, Energy and Power', 'System of Particles and Rotational Motion', 'Gravitation', 'Mechanical Properties of Solids', 'Mechanical Properties of Fluids', 'Thermal Properties of Matter', 'Thermodynamics', 'Kinetic Theory', 'Oscillations', 'Waves'],
+                    'Chemistry': ['Some Basic Concepts of Chemistry', 'Structure of Atom', 'Classification of Elements and Periodicity in Properties', 'Chemical Bonding and Molecular Structure', 'Thermodynamics', 'Equilibrium', 'Redox Reactions', 'Organic Chemistry - Some Basic Principles and Techniques', 'Hydrocarbons'],
+                    'Biology': ['The Living World', 'Biological Classification', 'Plant Kingdom', 'Animal Kingdom', 'Morphology of Flowering Plants', 'Anatomy of Flowering Plants', 'Structural Organisation in Animals', 'Cell: The Unit of Life', 'Biomolecules', 'Cell Cycle and Cell Division', 'Photosynthesis in Higher Plants', 'Respiration in Plants', 'Plant Growth and Development', 'Breathing and Exchange of Gases', 'Body Fluids and Circulation', 'Excretory Products and Their Elimination', 'Locomotion and Movement', 'Neural Control and Coordination', 'Chemical Coordination and Integration'],
+                    'Mathematics': ['Sets', 'Relations and Functions', 'Trigonometric Functions', 'Complex Numbers and Quadratic Equations', 'Linear Inequalities', 'Permutations and Combinations', 'Binomial Theorem', 'Sequences and Series', 'Straight Lines', 'Conic Sections', 'Introduction to Three Dimensional Geometry', 'Limits and Derivatives', 'Statistics', 'Probability'],
+                    'English': ['The Portrait of a Lady', 'Were Not Afraid to Die', 'Discovering Tut: The Saga Continues', 'Landscape of the Soul', 'The Ailing Planet', 'The Browning Version', 'The Adventure', 'Silk Road', 'Father to Son', 'A Photograph']
+                },
+                '12': {
+                    'Physics': ['Electric Charges and Fields', 'Electrostatic Potential and Capacitance', 'Current Electricity', 'Moving Charges and Magnetism', 'Magnetism and Matter', 'Electromagnetic Induction', 'Alternating Current', 'Electromagnetic Waves', 'Ray Optics and Optical Instruments', 'Wave Optics', 'Dual Nature of Radiation and Matter', 'Atoms', 'Nuclei', 'Semiconductor Electronics'],
+                    'Chemistry': ['Solutions', 'Electrochemistry', 'Chemical Kinetics', 'The d- and f-Block Elements', 'Coordination Compounds', 'Haloalkanes and Haloarenes', 'Alcohols, Phenols and Ethers', 'Aldehydes, Ketones and Carboxylic Acids', 'Amines', 'Biomolecules'],
+                    'Biology': ['Sexual Reproduction in Flowering Plants', 'Human Reproduction', 'Reproductive Health', 'Principles of Inheritance and Variation', 'Molecular Basis of Inheritance', 'Evolution', 'Human Health and Disease', 'Microbes in Human Welfare', 'Biotechnology: Principles and Processes', 'Biotechnology and its Applications', 'Organisms and Populations', 'Ecosystem', 'Biodiversity and Conservation'],
+                    'Mathematics': ['Relations and Functions', 'Inverse Trigonometric Functions', 'Matrices', 'Determinants', 'Continuity and Differentiability', 'Application of Derivatives', 'Integrals', 'Application of Integrals', 'Differential Equations', 'Vector Algebra', 'Three Dimensional Geometry', 'Linear Programming', 'Probability'],
+                    'Accountancy': ['Accounting for Partnership: Basic Concepts', 'Accounting for Partnership Firms - Reconstitution', 'Dissolution of Partnership Firm', 'Accounting for Share Capital', 'Accounting for Debentures', 'Financial Statements of a Company', 'Analysis of Financial Statements', 'Cash Flow Statement'],
+                    'Business Studies': ['Nature and Significance of Management', 'Principles of Management', 'Business Environment', 'Planning', 'Organising', 'Staffing', 'Directing', 'Controlling', 'Financial Management', 'Financial Markets', 'Marketing Management', 'Consumer Protection'],
+                    'Economics': ['Introduction (Microeconomics)', 'Theory of Consumer Behaviour', 'Production and Costs', 'The Theory of the Firm Under Perfect Competition', 'Market Equilibrium', 'Non-Competitive Markets', 'Introduction (Macroeconomics)', 'National Income Accounting', 'Money and Banking', 'Income Determination', 'The Government: Budget and the Economy', 'Open Economy Macroeconomics'],
+                    'English': ['The Last Lesson', 'Lost Spring', 'Deep Water', 'The Rattrap', 'Indigo', 'Poets and Pancakes', 'The Interview', 'Going Places', 'My Mother at Sixty-Six', 'An Elementary School Classroom in a Slum', 'Keeping Quiet', 'A Thing of Beauty', 'A Roadside Stand', 'Aunt Jennifers Tigers']
+                }
+            },
+            'ICSE': {
+                '6': {
+                    'Physics': ['Matter', 'Physical Quantities and Measurement', 'Force', 'Simple Machines', 'Light, Shadows and Reflections', 'Magnetism'],
+                    'Chemistry': ['Introduction to Chemistry', 'Matter', 'Elements, Compounds and Mixtures', 'Air', 'Water'],
+                    'Biology': ['The Leaf', 'The Flower', 'Cells: The Basic Unit of Life', 'Health and Hygiene', 'The Skeletal System'],
+                    'Mathematics': ['Number System', 'Whole Numbers', 'Integers', 'Fractions', 'Decimals', 'Ratio and Proportion', 'Algebra', 'Linear Equations', 'Geometry', 'Mensuration', 'Data Handling'],
+                    'History & Civics': ['The Study of History', 'The Earliest People', 'Indus Valley Civilization', 'Vedic Civilization', 'Government and Democracy', 'Local Self-Government'],
+                    'Geography': ['Earth in the Solar System', 'Globes and Maps', 'Major Landforms', 'Major Water Bodies', 'India: Location, Extent'],
+                    'English': ['Prose and Poetry collection', 'Grammar: Nouns and Pronouns', 'Tenses', 'Sentence Structure', 'Composition Writing']
+                },
+                '7': {
+                    'Physics': ['Physical Quantities and Measurement', 'Motion', 'Energy', 'Light Energy', 'Heat', 'Sound', 'Electricity and Magnetism'],
+                    'Chemistry': ['Matter and its Composition', 'Physical and Chemical Changes', 'Elements, Compounds and Mixtures', 'Atomic Structure', 'Language of Chemistry', 'Acids, Bases and Salts', 'Air and Atmosphere'],
+                    'Biology': ['Plant and Animal Tissues', 'Photosynthesis and Respiration in Plants', 'Excretion in Humans', 'Nervous System', 'Health and Hygiene'],
+                    'Mathematics': ['Integers', 'Rational Numbers', 'Fractions and Decimals', 'Exponents', 'Ratio and Proportion', 'Algebraic Expressions', 'Linear Equations', 'Lines and Angles', 'Triangles', 'Symmetry', 'Mensuration', 'Data Handling'],
+                    'History & Civics': ['The Medieval World', 'A New Era in Europe', 'Indian Subcontinent in Medieval Period', 'The Mughal Empire', 'The Indian Constitution', 'The Union Government'],
+                    'Geography': ['Earth and Its Layers', 'Rocks and Minerals', 'Volcanoes and Earthquakes', 'Weather and Climate', 'Continents'],
+                    'English': ['Literature: Stories and Poems', 'Grammar: Verbs and Adverbs', 'Active and Passive Voice', 'Direct and Indirect Speech', 'Composition: Letters and Essays']
+                },
+                '8': {
+                    'Physics': ['Force and Pressure', 'Light Energy', 'Heat Transfer', 'Sound', 'Electricity', 'Energy']
+,
+                    'Chemistry': ['Matter', 'Physical and Chemical Changes', 'Elements, Compounds and Mixtures', 'Atomic Structure', 'Language of Chemistry', 'Chemical Reactions', 'Hydrogen', 'Water', 'Carbon and its Compounds'],
+                    'Biology': ['Transportation in Plants and Animals', 'Reproduction in Plants and Animals', 'Ecosystems', 'Health and Hygiene', 'Food Production'],
+                    'Mathematics': ['Rational Numbers', 'Exponents and Powers', 'Squares and Square Roots', 'Cubes and Cube Roots', 'Playing with Numbers', 'Sets', 'Algebraic Expressions', 'Linear Equations in One Variable', 'Quadrilaterals', 'Constructions', 'Mensuration', 'Data Handling'],
+                    'History & Civics': ['Period of Transition', 'The Growth of Nationalism', 'India Under British Rule', 'The First War of Independence', 'The Indian National Congress', 'The Three Organs of Government', 'United Nations'],
+                    'Geography': ['Population Distribution', 'Migration', 'Resources', 'Industries', 'Agriculture', 'Transport and Communication'],
+                    'English': ['Literature Selections', 'Grammar Advanced', 'Composition: Story Writing, Articles', 'Comprehension', 'Vocabulary Building']
+                },
+                '9': {
+                    'Physics': ['Measurement and Experimentation', 'Motion in One Dimension', 'Laws of Motion', 'Pressure in Fluids and Atmospheric Pressure', 'Upthrust in Fluids, Archimedes Principle', 'Heat and Energy', 'Reflection of Light', 'Propagation of Sound Waves', 'Current Electricity', 'Magnetism'],
+                    'Chemistry': ['The Language of Chemistry', 'Chemical Changes and Reactions', 'Water', 'Atomic Structure and Chemical Bonding', 'The Periodic Table', 'Study of the First Element - Hydrogen', 'Study of Gas Laws', 'Atmospheric Pollution'],
+                    'Biology': ['Introducing Biology', 'Cell: The Unit of Life', 'Tissues: Plant and Animal Tissues', 'The Flower', 'Pollination and Fertilization', 'Seeds: Structure and Germination', 'Respiration in Plants', 'Five Kingdom Classification', 'Economic Importance of Bacteria and Fungi', 'Nutrition', 'Skeleton: Movement and Locomotion', 'Skin: The Jack of all Trades', 'Sense Organs', 'Aids to Health', 'Health Organisations', 'Diseases: Cause and Control'],
+                    'Mathematics': ['Rational and Irrational Numbers', 'Compound Interest', 'Expansions', 'Factorisation', 'Simultaneous Linear Equations', 'Indices/Exponents', 'Logarithms', 'Triangles', 'Mid-point and Intercept Theorem', 'Pythagoras Theorem', 'Rectilinear Figures', 'Theorems on Area', 'Circle', 'Statistics', 'Mean and Median', 'Area and Perimeter', 'Surface Area and Volume', 'Trigonometric Ratios', 'Coordinate Geometry'],
+                    'History & Civics': ['The Harappan Civilization', 'The Vedic Period', 'Jainism and Buddhism', 'The Mauryan Empire', 'The Gupta Empire', 'South India and the Cholas', 'The Sultanate Period', 'The Mughal Empire', 'Composite Culture', 'The Renaissance', 'The Reformation', 'Industrial Revolution', 'French Revolution', 'Our Constitution', 'Salient Features of Indian Constitution', 'Elections', 'Local Self-Government'],
+                    'Geography': ['Our World', 'Structure of the Earth', 'Landforms of the Earth', 'Hydrosphere', 'Atmosphere', 'Pollution', 'Natural Regions of the World', 'Map Work'],
+                    'English': ['Treasure Trove (Poems)', 'Treasure Trove (Short Stories)', 'Grammar', 'Composition', 'Comprehension', 'Notice and Email Writing']
+                },
+                '10': {
+                    'Physics': ['Force', 'Work, Energy and Power', 'Machines', 'Refraction of Light at Plane Surfaces', 'Refraction through a Lens', 'Spectrum', 'Sound', 'Current Electricity', 'Electrical Power and Household Circuits', 'Electromagnetism', 'Calorimetry', 'Radioactivity'],
+                    'Chemistry': ['Periodic Table, Periodic Properties and Variations', 'Chemical Bonding', 'Study of Acids, Bases and Salts', 'Analytical Chemistry', 'Mole Concept and Stoichiometry', 'Electrolysis', 'Metallurgy', 'Study of Compounds: Hydrogen Chloride, Ammonia, Nitric Acid, Sulphuric Acid', 'Organic Chemistry'],
+                    'Biology': ['Cell Cycle, Cell Division and Structure of Chromosomes', 'Genetics', 'Absorption by Roots', 'Transpiration', 'Photosynthesis', 'Chemical Coordination in Plants', 'Circulatory System', 'Excretory System', 'Nervous System', 'Sense Organs', 'Endocrine System', 'Reproductive System', 'Population: The Increasing Numbers and Rising Problems', 'Pollution'],
+                    'Mathematics': ['Goods and Services Tax (GST)', 'Banking', 'Shares and Dividends', 'Linear Inequations', 'Quadratic Equations in One Variable', 'Ratio and Proportion', 'Factorisation', 'Matrices', 'Arithmetic Progression', 'Geometric Progression', 'Reflection', 'Section and Mid-Point Formula', 'Equation of a Line', 'Similarity', 'Loci', 'Circles', 'Constructions (Circles)', 'Mensuration', 'Trigonometric Identities', 'Heights and Distances', 'Statistics', 'Probability'],
+                    'History & Civics': ['The Union Legislature: Lok Sabha and Rajya Sabha', 'The Union Executive: President, Vice-President, PM and Council of Ministers', 'The Judiciary', 'The First War of Independence, 1857', 'Growth of Nationalism', 'First Phase of Indian National Movement', 'Second Phase of Indian National Movement', 'Mahatma Gandhi and the National Movement', 'Forward Bloc, INA and Subhas Chandra Bose', 'Independence and Partition of India', 'The First World War', 'The Russian Revolution', 'The Rise of Dictatorship', 'The Second World War', 'United Nations and its Agencies', 'Non-Aligned Movement'],
+                    'Geography': ['India: Location, Extent and Physical Features', 'Climate', 'Soil Resources', 'Natural Vegetation', 'Water Resources', 'Mineral Resources', 'Agriculture', 'Manufacturing Industries', 'Transport', 'Waste Management', 'Map Work'],
+                    'English': ['Treasure Trove (Poems and Stories)', 'Drama: The Merchant of Venice', 'Grammar', 'Composition', 'Comprehension', 'Letter and Notice Writing', 'Email Writing']
+                },
+                '11': {
+                    'Physics': ['Role of Physics', 'Units and Measurements', 'Dynamics', 'Motion in Fluids', 'Heat and Thermodynamics', 'Oscillations', 'Wave Motion', 'Sound', 'Electrostatics'],
+                    'Chemistry': ['Some Basic Concepts of Chemistry', 'Structure of Atom', 'Periodic Table and Periodicity', 'Chemical Bonding and Molecular Structure', 'States of Matter', 'Chemical Thermodynamics', 'Equilibrium', 'Redox Reactions', 'Organic Chemistry', 'Hydrocarbons'],
+                    'Biology': ['Diversity of Life', 'Plant and Animal Kingdom', 'Plant Morphology and Anatomy', 'Cell Biology', 'Plant Physiology: Photosynthesis, Respiration', 'Human Anatomy and Physiology'],
+                    'Mathematics': ['Sets and Functions', 'Relations and Functions', 'Trigonometry', 'Complex Numbers', 'Quadratic Equations', 'Sequences and Series', 'Permutations and Combinations', 'Mathematical Induction', 'Binomial Theorem', 'Coordinate Geometry', 'Conic Sections', 'Calculus', 'Statistics', 'Probability'],
+                    'Accounts': ['Introduction to Accounting', 'Theory Base of Accounting', 'Recording of Transactions', 'Bank Reconciliation Statement', 'Trial Balance and Rectification of Errors', 'Depreciation', 'Final Accounts'],
+                    'Commerce': ['Business Environment', 'Forms of Business Organisation', 'Sources of Business Finance', 'Small Business', 'Internal Trade', 'International Trade'],
+                    'Economics': ['Indian Economy on the Eve of Independence', 'Indian Economy 1950-1990', 'Liberalisation, Privatisation and Globalisation', 'Poverty', 'Human Capital Formation', 'Rural Development', 'Employment'],
+                    'English': ['Prose and Poetry Selections', 'Drama Study', 'Composition', 'Comprehension and Précis']
+                },
+                '12': {
+                    'Physics': ['Electrostatics', 'Current Electricity', 'Magnetic Effects of Current and Magnetism', 'Electromagnetic Induction and AC', 'Electromagnetic Waves', 'Optics', 'Modern Physics', 'Atoms and Nuclei', 'Electronic Devices'],
+                    'Chemistry': ['Solid State', 'Solutions', 'Electrochemistry', 'Chemical Kinetics', 'Surface Chemistry', 'p-Block Elements', 'd-Block and f-Block Elements', 'Coordination Compounds', 'Halogen Compounds', 'Alcohols, Phenols and Ethers', 'Aldehydes, Ketones and Carboxylic Acids', 'Compounds Containing Nitrogen', 'Biomolecules'],
+                    'Biology': ['Reproduction', 'Genetics and Evolution', 'Biology in Human Welfare', 'Biotechnology', 'Ecology and Environment', 'Origin and Evolution of Life'],
+                    'Mathematics': ['Relations and Functions', 'Inverse Trigonometric Functions', 'Matrices and Determinants', 'Calculus: Continuity and Differentiability', 'Application of Derivatives', 'Integrals and Application of Integrals', 'Differential Equations', 'Vectors', 'Three-Dimensional Geometry', 'Probability', 'Linear Programming'],
+                    'Accounts': ['Partnership Accounts', 'Admission of a Partner', 'Retirement and Death of a Partner', 'Dissolution of Partnership', 'Joint Stock Company Accounts', 'Issue of Shares and Debentures', 'Final Accounts of Companies', 'Cash Flow Statement', 'Ratio Analysis'],
+                    'Commerce': ['Principles of Management', 'Functions of Management', 'Business Finance and Marketing', 'Stock Exchange', 'Banking', 'Auditing', 'Marketing Management', 'Consumer Protection'],
+                    'Economics': ['Microeconomics: Consumer Behaviour, Production, Market Forms', 'Macroeconomics: National Income, Money and Banking, Government Budget', 'Balance of Payments', 'Indian Economic Development'],
+                    'English': ['Prose Selections', 'Poetry Selections', 'Drama: Echoes/Reverie', 'Composition', 'Critical Appreciation']
+                }
+            }
+        };
+
+        // Cascading dropdowns: Board + Class → Subject → Chapter
+        const boardSelect = document.getElementById('boardSelect');
+        const classSelect = document.getElementById('classSelect');
+        const subjectSelect = document.getElementById('subjectSelect');
+        const chapterSelect = document.getElementById('chapterSelect');
+
+        function updateSubjects() {
+            const board = boardSelect.value;
+            const classVal = classSelect.value;
+            
+            subjectSelect.innerHTML = '<option value="">Select a subject…</option>';
+            chapterSelect.innerHTML = '<option value="">Select subject first…</option>';
+            chapterSelect.disabled = true;
+            
+            if (CHAPTER_DATA[board] && CHAPTER_DATA[board][classVal]) {
+                const subjects = Object.keys(CHAPTER_DATA[board][classVal]);
+                subjects.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject;
+                    option.textContent = subject;
+                    subjectSelect.appendChild(option);
+                });
+            }
+        }
+
+        function updateChapters() {
+            const board = boardSelect.value;
+            const classVal = classSelect.value;
+            const subject = subjectSelect.value;
+            
+            chapterSelect.innerHTML = '<option value="">Select a chapter…</option>';
+            
+            if (subject && CHAPTER_DATA[board] && CHAPTER_DATA[board][classVal] && CHAPTER_DATA[board][classVal][subject]) {
+                chapterSelect.disabled = false;
+                CHAPTER_DATA[board][classVal][subject].forEach(chapter => {
+                    const option = document.createElement('option');
+                    option.value = chapter;
+                    option.textContent = chapter;
+                    chapterSelect.appendChild(option);
+                });
+            } else {
+                chapterSelect.disabled = true;
+            }
+        }
+
+        boardSelect.addEventListener('change', updateSubjects);
+        classSelect.addEventListener('change', updateSubjects);
+        subjectSelect.addEventListener('change', updateChapters);
+        
+        // Initialize on page load
+        updateSubjects();
+
         document.getElementById('generateBtn').addEventListener('click', generatePlan);
 
         async function generatePlan() {
@@ -920,15 +1096,15 @@
 
             const board = document.getElementById('boardSelect').value;
             const classLevel = document.getElementById('classSelect').value;
-            const subject = document.getElementById('subjectInput').value.trim();
-            const chapter = document.getElementById('chapterInput').value.trim();
+            const subject = subjectSelect.value;
+            const chapter = chapterSelect.value;
             const topic = document.getElementById('topicInput').value.trim();
             const language = document.getElementById('languageSelect').value;
             const learningObjective = document.getElementById('objectiveInput').value.trim();
             const teacherNotes = document.getElementById('notesInput').value.trim();
 
-            if (!subject) { showError('Please enter a subject.'); return; }
-            if (!chapter) { showError('Please enter a chapter name.'); return; }
+            if (!subject) { showError('Please select a subject.'); return; }
+            if (!chapter) { showError('Please select a chapter.'); return; }
 
             loading.classList.add('active');
             generateBtn.disabled = true;
@@ -1151,7 +1327,7 @@
 
         function getExportFilename() {
             const classValue = document.getElementById('classSelect').value;
-            const chapter = document.getElementById('chapterInput').value.trim();
+            const chapter = chapterSelect.value;
             const clean = (str) => String(str || '').trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
             const chapterClean = clean(chapter) || 'Lesson';
             return `${chapterClean}_LessonPlan_Class${classValue}`;
