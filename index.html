@@ -198,6 +198,10 @@
             font-size: 14px;
             margin-bottom: 10px;
         }
+        .five-e-letter svg {
+            width: 16px;
+            height: 16px;
+        }
         .five-e-item:nth-child(1) .five-e-letter { background: var(--engage); }
         .five-e-item:nth-child(2) .five-e-letter { background: var(--explore); }
         .five-e-item:nth-child(3) .five-e-letter { background: var(--explain); }
@@ -459,11 +463,21 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 26px;
-            height: 26px;
-            background: var(--bg-subtle);
-            border-radius: 6px;
-            font-size: 14px;
+            width: 32px;
+            height: 32px;
+            background: var(--accent-soft);
+            border-radius: 8px;
+            flex-shrink: 0;
+            color: var(--accent-hover);
+        }
+        .plan-section-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         .plan-list {
@@ -513,12 +527,17 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             border-radius: 8px;
             color: white;
             font-weight: 700;
             font-size: 14px;
+            flex-shrink: 0;
+        }
+        .phase-letter svg {
+            width: 18px;
+            height: 18px;
         }
         .phase-card[data-phase="engage"] .phase-letter { background: var(--engage); }
         .phase-card[data-phase="explore"] .phase-letter { background: var(--explore); }
@@ -732,27 +751,37 @@
     <section class="five-e-strip">
         <div class="five-e-row">
             <div class="five-e-item">
-                <div class="five-e-letter">E</div>
+                <div class="five-e-letter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
                 <div class="five-e-name">Engage</div>
                 <div class="five-e-time">5 min</div>
             </div>
             <div class="five-e-item">
-                <div class="five-e-letter">E</div>
+                <div class="five-e-letter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
                 <div class="five-e-name">Explore</div>
                 <div class="five-e-time">8 min</div>
             </div>
             <div class="five-e-item">
-                <div class="five-e-letter">E</div>
+                <div class="five-e-letter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </div>
                 <div class="five-e-name">Explain</div>
                 <div class="five-e-time">12 min</div>
             </div>
             <div class="five-e-item">
-                <div class="five-e-letter">E</div>
+                <div class="five-e-letter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 7l8 5 8-5-8-5z"/><path d="M4 17l8 5 8-5M4 12l8 5 8-5"/></svg>
+                </div>
                 <div class="five-e-name">Elaborate</div>
                 <div class="five-e-time">10 min</div>
             </div>
             <div class="five-e-item">
-                <div class="five-e-letter">E</div>
+                <div class="five-e-letter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                </div>
                 <div class="five-e-name">Evaluate</div>
                 <div class="five-e-time">5 min</div>
             </div>
@@ -958,6 +987,15 @@
                 if (!phase) return '';
                 const phaseNames = { engage: 'Engage', explore: 'Explore', explain: 'Explain', elaborate: 'Elaborate', evaluate: 'Evaluate' };
                 
+                // Lucide-style icons for each 5E phase
+                const phaseIcons = {
+                    engage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+                    explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+                    explain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+                    elaborate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 7l8 5 8-5-8-5z"/><path d="M4 17l8 5 8-5M4 12l8 5 8-5"/></svg>',
+                    evaluate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>'
+                };
+                
                 let dialogueHTML = '';
                 if (phase.teacherDialogue && phase.teacherDialogue.length) {
                     dialogueHTML = `<div class="phase-block">
@@ -993,9 +1031,9 @@
                 return `
                     <div class="phase-card" data-phase="${phaseKey}">
                         <div class="phase-header">
-                            <div class="phase-letter">${letter}</div>
+                            <div class="phase-letter">${phaseIcons[phaseKey]}</div>
                             <div class="phase-name">${phaseNames[phaseKey]}</div>
-                            <div class="phase-duration">⏱ ${escapeHTML(phase.duration || '')}</div>
+                            <div class="phase-duration">${escapeHTML(phase.duration || '')}</div>
                         </div>
                         <div class="phase-purpose">${escapeHTML(phase.purpose || '')}</div>
                         <div class="phase-block">
@@ -1024,17 +1062,17 @@
                 </div>
 
                 <div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">🎯</span>Learning objectives</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>Learning objectives</h3>
                     ${renderList(plan.learningObjectives)}
                 </div>
 
                 <div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">📦</span>Materials & resources</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg></span>Materials & resources</h3>
                     ${renderList(plan.materials)}
                 </div>
 
                 ${plan.priorKnowledge ? `<div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">📋</span>Prior knowledge required</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg></span>Prior knowledge required</h3>
                     <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.55;">${escapeHTML(plan.priorKnowledge)}</p>
                 </div>` : ''}
 
@@ -1047,7 +1085,7 @@
                 ${plan.phases ? renderPhase('evaluate', plan.phases.evaluate, 'E') : ''}
 
                 ${plan.differentiation ? `<div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">🌱</span>Differentiation strategies</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="17" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/></svg></span>Differentiation strategies</h3>
                     <div class="two-column-grid">
                         <div class="diff-box">
                             <div class="diff-box-title">For struggling learners</div>
@@ -1061,24 +1099,24 @@
                 </div>` : ''}
 
                 ${plan.homework ? `<div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">📝</span>Homework assignment</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>Homework assignment</h3>
                     ${plan.homework.description ? `<p style="font-size: 14px; color: var(--ink-soft); margin-bottom: 12px;">${escapeHTML(plan.homework.description)}</p>` : ''}
                     ${renderList(plan.homework.tasks)}
                     ${plan.homework.estimatedTime ? `<p style="font-size: 12px; color: var(--ink-muted); margin-top: 12px;"><strong>Estimated time:</strong> ${escapeHTML(plan.homework.estimatedTime)}</p>` : ''}
                 </div>` : ''}
 
                 ${plan.expectedOutcomes ? `<div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">📊</span>Expected outcomes</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Expected outcomes</h3>
                     ${renderList(plan.expectedOutcomes)}
                 </div>` : ''}
 
                 ${plan.teacherTips ? `<div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">💡</span>Teacher tips</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26A7 7 0 0012 2z"/></svg></span>Teacher tips</h3>
                     ${renderList(plan.teacherTips)}
                 </div>` : ''}
 
                 ${plan.nextLessonPreview ? `<div class="plan-section">
-                    <h3 class="plan-section-title"><span class="plan-section-icon">⏭</span>Coming up next</h3>
+                    <h3 class="plan-section-title"><span class="plan-section-icon"><svg viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg></span>Coming up next</h3>
                     <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.55; font-style: italic;">${escapeHTML(plan.nextLessonPreview)}</p>
                 </div>` : ''}
 
