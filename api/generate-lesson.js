@@ -21,6 +21,7 @@ module.exports = async (req, res) => {
       subject,
       chapter,
       topic,
+      language,
       learningObjective,
       teacherNotes
     } = req.body;
@@ -38,6 +39,7 @@ module.exports = async (req, res) => {
       subject,
       chapter,
       topic,
+      language,
       learningObjective,
       teacherNotes
     });
@@ -143,6 +145,40 @@ module.exports = async (req, res) => {
 };
 
 function buildPrompt(config) {
+  const language = config.language || 'English';
+  
+  // Language instruction block
+  const languageNote = language === 'English' 
+    ? '' 
+    : `
+
+============================
+LANGUAGE REQUIREMENT (CRITICAL)
+============================
+
+Generate ALL TEXT CONTENT of the lesson plan in ${language}. This includes:
+- Title
+- Learning objectives
+- Materials list
+- Prior knowledge description
+- All phase activities, dialogue, and explanations
+- Differentiation strategies
+- Homework description and tasks
+- Expected outcomes
+- Teacher tips
+- Next lesson preview
+
+KEEP these in English (do NOT translate):
+- JSON keys/field names ("title", "metadata", "phases", "engage", etc.)
+- The metadata values for: "board", "duration", "model"
+- Bloom's Taxonomy level names if used (Remember, Understand, etc.)
+- Subject and chapter names if originally in English
+
+Use natural, grammatically correct ${language}. For technical/scientific terms, you may use English terminology where commonly understood (e.g., "DNA", "photosynthesis", "algorithm").
+
+For Indian languages, use proper script (Devanagari for Hindi/Marathi, Tamil script for Tamil, etc.).
+`;
+
   return `You are an expert CBSE-trained educator creating a professional 40-minute lesson plan using the 5E Instructional Model (Engage, Explore, Explain, Elaborate, Evaluate).
 
 ============================
@@ -154,8 +190,10 @@ CONTEXT
 - Chapter: ${config.chapter}
 - Specific Topic: ${config.topic || config.chapter}
 - Total Duration: 40 minutes
+- Output Language: ${language}
 ${config.learningObjective ? `- Teacher's specific learning objective: ${config.learningObjective}` : ''}
 ${config.teacherNotes ? `- Additional teacher notes: ${config.teacherNotes}` : ''}
+${languageNote}
 
 ============================
 5E MODEL TIME ALLOCATION (40 min total)
@@ -322,5 +360,7 @@ Use this exact structure:
     "Backup plan if activity runs short"
   ],
   "nextLessonPreview": "Brief preview of what comes next (1-2 sentences)"
-}`;
+}
+
+${language !== 'English' ? `\nFINAL REMINDER: All text content (objectives, activities, dialogue, tips, etc.) MUST be in ${language}. Use natural ${language} phrasing that an Indian teacher would actually use in a classroom.` : ''}`;
 }
