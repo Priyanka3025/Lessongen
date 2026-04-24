@@ -1,0 +1,9 @@
+{
+  "name": "lessongen",
+  "version": "1.0.0",
+  "description": "AI-powered CBSE 5E model lesson plan generator for educators",
+  "main": "index.html",
+  "engines": {
+    "node": "22.x"
+  }
+}
